@@ -3,6 +3,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  // Include the Vercel serverless runtime target so the query engine
+  // binaries are bundled for both local dev ("native") and Vercel
+  // ("debian-openssl-3.0.x"). Without this, deployments crash at runtime
+  // with a server-side exception.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {

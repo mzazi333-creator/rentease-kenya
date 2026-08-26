@@ -6,12 +6,20 @@ export const metadata: Metadata = { title: "About Us" };
 export const dynamic = "force-dynamic";
 
 export default async function AboutPage() {
-  const [buildings, units, tenants, landlords] = await Promise.all([
-    prisma.building.count({ where: { status: "APPROVED" } }),
-    prisma.unit.count({ where: { availability: "VACANT" } }),
-    prisma.user.count({ where: { role: "TENANT" } }),
-    prisma.user.count({ where: { role: "LANDLORD" } }),
-  ]);
+  let buildings = 0;
+  let units = 0;
+  let tenants = 0;
+  let landlords = 0;
+  try {
+    [buildings, units, tenants, landlords] = await Promise.all([
+      prisma.building.count({ where: { status: "APPROVED" } }),
+      prisma.unit.count({ where: { availability: "VACANT" } }),
+      prisma.user.count({ where: { role: "TENANT" } }),
+      prisma.user.count({ where: { role: "LANDLORD" } }),
+    ]);
+  } catch {
+    // ignore — page renders with zero stats
+  }
 
   return (
     <div className="container-page py-12">

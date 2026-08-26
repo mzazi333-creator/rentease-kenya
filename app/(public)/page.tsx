@@ -2,23 +2,45 @@ import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/services/settings-service";
-import { searchRentals } from "@/lib/services/search-service";
-import { formatKSh } from "@/lib/utils";
+import { searchRentals, type RentalSearchResult } from "@/lib/services/search-service";
 import BuildingCard from "@/components/rentals/BuildingCard";
 
 export const dynamic = "force-dynamic";
 
+const EMPTY_SEARCH: RentalSearchResult = {
+  buildings: [],
+  total: 0,
+  page: 1,
+  pageSize: 3,
+  totalPages: 1,
+};
+
 export default async function LandingPage() {
-  const [stats, featured, settings] = await Promise.all([
-    prisma.$transaction([
+  // The public site degrades gracefully if the database is briefly
+  // unavailable (zeros and empty states instead of a hard crash).
+  let stats = [0, 0, 0, 0];
+  let featured = EMPTY_SEARCH;
+  let settings = null;
+  try {
+    stats = await prisma.$transaction([
       prisma.building.count({ where: { status: "APPROVED" } }),
       prisma.unit.count({ where: { availability: "VACANT" } }),
       prisma.user.count({ where: { role: "TENANT" } }),
       prisma.user.count({ where: { role: "LANDLORD" } }),
-    ]),
-    searchRentals({ page: 1, pageSize: 3, sort: "newest" }),
-    getSettings(),
-  ]);
+    ]);
+  } catch {
+    // ignore — page renders with zero stats
+  }
+  try {
+    featured = await searchRentals({ page: 1, pageSize: 3, sort: "newest" });
+  } catch {
+    // ignore — featured section hidden
+  }
+  try {
+    settings = await getSettings();
+  } catch {
+    // ignore — defaults used
+  }
 
   const [approvedBuildings, vacantUnits, tenants, landlords] = stats;
 

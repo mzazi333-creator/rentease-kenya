@@ -93,11 +93,28 @@ npm run start
 
 ## 9. Deploy
 
-1. Provision a PostgreSQL database and set `DATABASE_URL` on your host (e.g. Vercel, Railway, Render, a VPS).
+### Vercel (recommended)
+
+1. **Use a hosted PostgreSQL** that Vercel can reach (e.g. Neon, Supabase, Railway). A `localhost`/private database will never work from Vercel.
+2. Import the GitHub repo into Vercel (framework preset: Next.js). The build script already runs `prisma generate` (with the `debian-openssl-3.0.x` engine target included), so no extra build settings are required.
+3. **Critical:** in Vercel → Project → Settings → Environment Variables, add:
+   - `DATABASE_URL` = your hosted PostgreSQL connection string
+4. Run migrations against the hosted database before/after deploy:
+   ```bash
+   npx prisma migrate deploy
+   npm run db:seed          # creates the admin (see section 6)
+   ```
+5. Deploy. If you ever see a generic "Application error" page, the first thing to check is the `DATABASE_URL` variable above — the app now renders a friendly diagnostic page when the database is unreachable.
+
+> Note: property image uploads are stored on the local filesystem, which is ephemeral on Vercel. For production image persistence, add a cloud storage driver to `lib/storage.ts`.
+
+### VPS / self-hosted
+
+1. Provision a PostgreSQL database and set `DATABASE_URL`.
 2. `npm ci && npx prisma migrate deploy && npm run db:seed`
 3. `npm run build && npm run start`
 
-For a single-VPS deployment, serve the `.next` build with the included `next start` (or a process manager such as PM2); optionally front it with Nginx for TLS.
+Serve the `.next` build with the included `next start` (or a process manager such as PM2); optionally front it with Nginx for TLS.
 
 ## Testing
 
