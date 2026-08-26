@@ -125,10 +125,11 @@ export async function requestPasswordReset(input: unknown): Promise<{ message: s
   });
   await logAudit({ userId: user.id, action: "PASSWORD_RESET_REQUESTED", entity: "User", entityId: user.id });
 
-  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/reset-password?token=${token}`;
-  // NOTE: production would send this via email (SMTP). In development we surface it in the response.
+  // Relative path — the UI resolves it against the current origin, so no
+  // public app URL is required. Production deployments would send this via email.
+  const resetPath = `/reset-password?token=${token}`;
   if (process.env.NODE_ENV !== "production") {
-    return { message: "Password reset link generated.", devResetUrl: resetUrl };
+    return { message: "Password reset link generated.", devResetUrl: resetPath };
   }
   return { message: "If an account exists for this email, a reset link has been sent." };
 }
@@ -150,6 +151,8 @@ export async function resetPassword(input: unknown): Promise<{ message: string }
   await prisma.$transaction([
     prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
     prisma.passwordReset.update({ where: { id: record.id }, data: { used: true } }),
+    // Revoke any existing sessions — the password has changed.
+    prisma.session.deleteMany({ where: { userId: record.userId } }),
   ]);
   await logAudit({
     userId: record.userId,
@@ -201,9 +204,12 @@ export async function changePassword(actor: Actor, input: unknown): Promise<{ me
   const ok = await verifyPassword(currentPassword, user.passwordHash);
   if (!ok) throw toServiceError("Current password is incorrect");
 
-  await prisma.user.update({ where: { id: actor.id }, data: { passwordHash: await hashPassword(newPassword) } });
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: actor.id }, data: { passwordHash: await hashPassword(newPassword) } }),
+    prisma.session.deleteMany({ where: { userId: actor.id } }),
+  ]);
   await logAudit({ userId: actor.id, action: "PASSWORD_CHANGED", entity: "User", entityId: actor.id });
-  return { message: "Password updated successfully." };
+  return { message: "Password updated successfully. Please log in again." };
 }
 
 /** Fetch a user's complete profile incl. role-specific profile. */

@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:demo": "tsx prisma/seed.ts --demo",
     "db:studio": "prisma studio",
     "test:flow": "tsx scripts/test-full-flow.ts"
   },
@@ -21,7 +22,6 @@
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
-    "jose": "^5.9.6",
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

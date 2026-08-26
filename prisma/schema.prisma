@@ -98,6 +98,18 @@ model User {
   reviewedPayments Payment[]            @relation("reviewedBy")
   passwordResets   PasswordReset[]
   tenancyMoves     Tenancy[]            @relation("movedBy")
+  sessions         Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model LandlordProfile {
@@ -256,7 +268,10 @@ model Tenancy {
 
   payments Payment[]
 
-  @@unique([unitId, status])
+  // One ACTIVE tenancy per unit is enforced by a partial unique index
+  // ("Tenancy_one_active_per_unit") created in a raw-SQL migration —
+  // a full (unitId, status) unique index would block re-letting a unit
+  // that previously had a moved-out tenancy.
   @@index([tenantId])
   @@index([buildingId])
   @@index([status])

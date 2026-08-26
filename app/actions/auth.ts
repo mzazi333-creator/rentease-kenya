@@ -1,6 +1,6 @@
 "use server";
 
-import { signSessionToken, setSessionCookie, clearSessionCookie, getSessionUser } from "@/lib/auth";
+import { createSession, destroySession, getSessionUser } from "@/lib/auth";
 import {
   registerUser,
   loginUser,
@@ -34,8 +34,7 @@ export async function registerAction(input: {
   if (!rl.allowed) return { ok: false, message: `Too many attempts. Try again in ${rl.retryAfterSeconds}s.` };
   try {
     const { user } = await registerUser(input);
-    const token = await signSessionToken({ sub: user.id, role: user.role, name: user.fullName });
-    await setSessionCookie(token);
+    await createSession(user.id);
     return { ok: true, message: "Account created successfully.", redirectTo: dashboardForRole(user.role) };
   } catch (e) {
     return err(e);
@@ -47,8 +46,7 @@ export async function loginAction(input: { email: string; password: string }): P
   if (!rl.allowed) return { ok: false, message: `Too many attempts. Try again in ${rl.retryAfterSeconds}s.` };
   try {
     const user = await loginUser(input);
-    const token = await signSessionToken({ sub: user.id, role: user.role, name: user.fullName });
-    await setSessionCookie(token);
+    await createSession(user.id);
     return { ok: true, message: `Welcome back, ${user.fullName.split(" ")[0]}!`, redirectTo: dashboardForRole(user.role) };
   } catch (e) {
     return err(e);
@@ -56,7 +54,7 @@ export async function loginAction(input: { email: string; password: string }): P
 }
 
 export async function logoutAction(): Promise<ActionResult> {
-  await clearSessionCookie();
+  await destroySession();
   redirect("/");
 }
 

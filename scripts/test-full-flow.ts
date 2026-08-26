@@ -276,7 +276,7 @@ async function main() {
       { id: otherLandlord.user.id, role: "TENANT" },
       { buildingId: building.id, floorId: groundFloor.id, unitId: unit001.id }
     ),
-    "already has an application"
+    "no longer available"
   );
   await expectError("application on occupied/pending unit rejected", () =>
     submitApplication(tenantActor, {
@@ -342,7 +342,9 @@ async function main() {
   }, "active tenancy");
 
   const rentBeforeConfirm = await computeRentStatus(tenancy!.id, 5);
-  check("rent is PENDING before confirmation", rentBeforeConfirm.status === "PENDING", rentBeforeConfirm.status);
+  // Before confirmation the rent must NOT be PAID — it is PENDING before the
+  // due day and OVERDUE after it (correct business logic either way).
+  check("rent not PAID before confirmation", rentBeforeConfirm.status !== "PAID", rentBeforeConfirm.status);
 
   await confirmPayment(adminActor, pay1.id);
   const rentAfterConfirm = await computeRentStatus(tenancy!.id, 5);
@@ -351,8 +353,9 @@ async function main() {
   const history = await listTenantPaymentHistory(tenantActor);
   check("confirmed payment in history", history.some((p) => p.transactionCode === code1 && p.status === "CONFIRMED"));
 
-  // Rejected payment flow (next month)
-  const nextPaymentDate = new Date(curYear, curMonth, 1);
+  // Rejected payment flow — use the previous month so the payment date is in
+  // the past (future dates are rejected by validation).
+  const nextPaymentDate = new Date(curYear, curMonth - 2, 1);
   const pay2 = await submitPayment(tenantActor, {
     transactionCode: `TEST${suffix}B1`,
     amount: 10000,
@@ -360,7 +363,7 @@ async function main() {
   });
   await rejectPayment(adminActor, pay2.id, "Code could not be verified with M-Pesa");
   const rejected = await prisma.payment.findUnique({ where: { id: pay2.id } });
-  check("payment REJECTED with reason", rejected?.status === "REJECTED" && rejected.rejectionReason?.includes("M-Pesa"));
+  check("payment REJECTED with reason", (rejected?.status === "REJECTED" && rejected.rejectionReason?.includes("M-Pesa")) ?? false);
 
   // Tenant can resubmit after rejection
   const pay3 = await submitPayment(tenantActor, {

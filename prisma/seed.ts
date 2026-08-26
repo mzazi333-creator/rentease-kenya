@@ -1,12 +1,13 @@
 /**
  * RentEase Kenya — database seed.
  *
- * 1. Always creates/updates the ADMIN account from environment variables
- *    (ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_NAME / ADMIN_PHONE).
- * 2. When SEED_DEMO_DATA=true (development), seeds landlords, buildings,
- *    floors, units, tenants, tenancies and payment records.
+ * 1. Always creates/updates the initial ADMIN account using the credentials
+ *    below (documented defaults — CHANGE the password after first login).
+ * 2. Pass `--demo` to also seed demo landlords, buildings, floors, units,
+ *    tenants, tenancies and payment records (development only).
  *
- * Run: npx prisma db seed
+ * Run:          npx prisma db seed
+ * Run with demo:npx tsx prisma/seed.ts --demo
  */
 import { PrismaClient, type Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -15,27 +16,32 @@ const prisma = new PrismaClient();
 
 const SALT_ROUNDS = 12;
 
+// Initial administrator credentials (no environment variables required).
+// Change these after the first login via the admin Settings or profile.
+const ADMIN_EMAIL = "admin@rentease.co.ke";
+const ADMIN_PASSWORD = "Admin@12345";
+const ADMIN_NAME = "Platform Admin";
+const ADMIN_PHONE = "+254700000000";
+
 async function main() {
   console.log("🌱 Seeding database…");
+  const seedDemo = process.argv.includes("--demo");
 
   // ────────────────────────── Admin (always) ──────────────────────────
-  const adminEmail = (process.env.ADMIN_EMAIL ?? "admin@rentease.co.ke").toLowerCase();
-  const adminPassword = process.env.ADMIN_PASSWORD ?? "Admin@12345";
-  const adminName = process.env.ADMIN_NAME ?? "Platform Admin";
-  const adminPhone = process.env.ADMIN_PHONE ?? "+254700000000";
+  const adminEmail = ADMIN_EMAIL.toLowerCase();
 
   const admin = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: { fullName: adminName, phone: adminPhone },
+    update: { fullName: ADMIN_NAME, phone: ADMIN_PHONE },
     create: {
       email: adminEmail,
-      passwordHash: await bcrypt.hash(adminPassword, SALT_ROUNDS),
-      fullName: adminName,
-      phone: adminPhone,
+      passwordHash: await bcrypt.hash(ADMIN_PASSWORD, SALT_ROUNDS),
+      fullName: ADMIN_NAME,
+      phone: ADMIN_PHONE,
       role: "ADMIN",
     },
   });
-  console.log(`✅ Admin ready: ${admin.email}`);
+  console.log(`✅ Admin ready: ${admin.email} (change the default password after first login)`);
 
   // System settings + payment method defaults
   await prisma.systemSettings.upsert({
@@ -70,9 +76,9 @@ async function main() {
     },
   });
 
-  // ────────────────────────── Demo data (dev only) ──────────────────────────
-  if (process.env.SEED_DEMO_DATA !== "true") {
-    console.log("⏭️  SEED_DEMO_DATA != true — skipping demo data.");
+  // ────────────────────────── Demo data (dev only, --demo flag) ──────────────────────────
+  if (!seedDemo) {
+    console.log("⏭️  Skipping demo data. Re-run with `--demo` to seed it.");
     return;
   }
 

@@ -108,6 +108,7 @@ async function getPaymentOrThrow(paymentId: string) {
 
 /** Admin confirms a payment. Only PENDING_CONFIRMATION payments can be confirmed. */
 export async function confirmPayment(actor: Actor, paymentId: string): Promise<Payment> {
+  if (actor.role !== "ADMIN") throw toServiceError("You do not have permission to perform this action.");
   const payment = await getPaymentOrThrow(paymentId);
   if (payment.status !== "PENDING_CONFIRMATION") {
     throw toServiceError("Only pending payments can be confirmed.");
@@ -173,6 +174,7 @@ export async function confirmPayment(actor: Actor, paymentId: string): Promise<P
 
 /** Admin rejects a payment with a reason the tenant can see. */
 export async function rejectPayment(actor: Actor, paymentId: string, reason: string): Promise<Payment> {
+  if (actor.role !== "ADMIN") throw toServiceError("You do not have permission to perform this action.");
   const payment = await getPaymentOrThrow(paymentId);
   if (payment.status !== "PENDING_CONFIRMATION") {
     throw toServiceError("Only pending payments can be rejected.");

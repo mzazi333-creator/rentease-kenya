@@ -68,17 +68,6 @@ class LocalStorageService implements StorageService {
   }
 }
 
-class S3StorageService implements StorageService {
-  async save(_file: StoredFile, _folder: string): Promise<string> {
-    throw new Error(
-      "S3 storage driver requires STORAGE_ENDPOINT, STORAGE_ACCESS_KEY, STORAGE_SECRET_KEY, STORAGE_BUCKET and STORAGE_PUBLIC_URL to be configured. For local development use STORAGE_DRIVER=local."
-    );
-  }
-  async delete(_url: string): Promise<void> {
-    // no-op when unconfigured
-  }
-}
-
 function extForMime(mime: string): string {
   switch (mime) {
     case "image/png":
@@ -94,10 +83,13 @@ function extForMime(mime: string): string {
 
 let instance: StorageService | null = null;
 
+/**
+ * Images are stored on the local filesystem under public/uploads/. The
+ * StorageService abstraction remains so a cloud driver can be added later
+ * without touching business logic — no storage configuration is required.
+ */
 export function getStorage(): StorageService {
-  if (instance) return instance;
-  const driver = process.env.STORAGE_DRIVER ?? "local";
-  instance = driver === "s3" ? new S3StorageService() : new LocalStorageService();
+  if (!instance) instance = new LocalStorageService();
   return instance;
 }
 

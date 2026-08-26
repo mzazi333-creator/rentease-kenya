@@ -37,7 +37,15 @@ export default function ForgotPasswordForm() {
       {resetUrl && (
         <div className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p className="font-semibold">Development mode — reset link:</p>
-          <a href={resetUrl} className="mt-1 block break-all font-mono text-xs text-amber-900 underline">
+          <a
+            href={resetUrl}
+            onClick={(e) => {
+              e.preventDefault();
+              window.location.href = window.location.origin + resetUrl;
+            }}
+            className="mt-1 block break-all font-mono text-xs text-amber-900 underline"
+          >
+            {typeof window !== "undefined" ? window.location.origin : ""}
             {resetUrl}
           </a>
           <p className="mt-1 text-xs">

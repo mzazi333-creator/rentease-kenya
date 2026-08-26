@@ -163,6 +163,7 @@ export async function listAllApplications(filters?: { status?: string }) {
  * tenancies.
  */
 export async function approveApplication(actor: Actor, applicationId: string) {
+  if (actor.role !== "ADMIN") throw toServiceError("You do not have permission to perform this action.");
   const app = await prisma.tenantApplication.findUnique({
     where: { id: applicationId },
     include: { unit: true, building: true },
@@ -226,6 +227,7 @@ export async function approveApplication(actor: Actor, applicationId: string) {
 }
 
 export async function rejectApplication(actor: Actor, applicationId: string, reason: string) {
+  if (actor.role !== "ADMIN") throw toServiceError("You do not have permission to perform this action.");
   const app = await prisma.tenantApplication.findUnique({ where: { id: applicationId } });
   if (!app) throw toServiceError("Application not found.");
   if (app.status !== "PENDING_APPROVAL") throw toServiceError("This application is no longer pending.");

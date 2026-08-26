@@ -1,57 +1,55 @@
-import { SignJWT, jwtVerify } from "jose";
+import { createHash, randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
-import type { Role, User } from "@prisma/client";
+import type { User } from "@prisma/client";
 
 const SESSION_COOKIE = "rh_session";
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
-export interface SessionPayload {
-  sub: string;
-  role: Role;
-  name: string;
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
 }
 
-function getSecret(): Uint8Array {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) {
-    throw new Error("AUTH_SECRET environment variable is not set");
-  }
-  return new TextEncoder().encode(secret);
-}
-
-export async function signSessionToken(payload: SessionPayload): Promise<string> {
-  return new SignJWT({ role: payload.role, name: payload.name })
-    .setProtectedHeader({ alg: "HS256" })
-    .setSubject(payload.sub)
-    .setIssuedAt()
-    .setExpirationTime(`${SESSION_MAX_AGE}s`)
-    .sign(getSecret());
-}
-
-export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, getSecret(), { algorithms: ["HS256"] });
-    if (!payload.sub || !payload.role) return null;
-    return {
-      sub: payload.sub as string,
-      role: payload.role as Role,
-      name: (payload.name as string) ?? "",
-    };
-  } catch {
-    return null;
-  }
-}
-
-export async function setSessionCookie(token: string) {
+/**
+ * Database-backed sessions. No signing secret is required: the cookie holds a
+ * random 256-bit token, and only its SHA-256 hash is stored in PostgreSQL.
+ * Sessions can be revoked server-side (logout, password change) and expire
+ * automatically.
+ */
+export async function createSession(userId: string): Promise<void> {
+  const token = randomBytes(32).toString("base64url");
+  await prisma.session.create({
+    data: {
+      tokenHash: hashToken(token),
+      userId,
+      expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000),
+    },
+  });
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: SESSION_MAX_AGE,
+    maxAge: SESSION_MAX_AGE_SECONDS,
   });
+}
+
+/** Delete the current session row and clear the cookie. */
+export async function destroySession(): Promise<void> {
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  if (token) {
+    await prisma.session.deleteMany({ where: { tokenHash: hashToken(token) } });
+  }
+  store.delete(SESSION_COOKIE);
+}
+
+/** Revoke every session belonging to a user (e.g. after a password change). */
+export async function revokeAllUserSessions(userId: string): Promise<void> {
+  await prisma.session.deleteMany({ where: { userId } });
+  const store = await cookies();
+  store.delete(SESSION_COOKIE);
 }
 
 export async function clearSessionCookie() {
@@ -61,16 +59,23 @@ export async function clearSessionCookie() {
 
 /**
  * Returns the currently authenticated user (fresh from DB) or null.
- * Used by server components and server actions. Never trust the JWT alone —
- * status/suspension changes must take effect immediately.
+ * Used by server components and server actions. The session is validated
+ * against the database, so suspension takes effect immediately.
  */
 export async function getSessionUser(): Promise<User | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  const payload = await verifySessionToken(token);
-  if (!payload) return null;
-  const user = await prisma.user.findUnique({ where: { id: payload.sub } });
-  if (!user || user.status === "SUSPENDED") return null;
-  return user;
+
+  const session = await prisma.session.findUnique({
+    where: { tokenHash: hashToken(token) },
+    include: { user: true },
+  });
+  if (!session) return null;
+  if (session.expiresAt < new Date()) {
+    await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+    return null;
+  }
+  if (session.user.status === "SUSPENDED") return null;
+  return session.user;
 }
