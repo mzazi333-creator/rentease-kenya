@@ -1,0 +1,25 @@
+<svg width="560" height="420" viewBox="0 0 560 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="560" height="420" rx="16" fill="#EEF7F0"/>
+  <rect x="60" y="90" width="300" height="240" rx="8" fill="#D7ECDC"/>
+  <rect x="80" y="110" width="60" height="80" rx="4" fill="#FFFFFF"/>
+  <rect x="150" y="110" width="60" height="80" rx="4" fill="#FFFFFF"/>
+  <rect x="220" y="110" width="60" height="80" rx="4" fill="#FFFFFF"/>
+  <rect x="290" y="110" width="50" height="80" rx="4" fill="#FFFFFF"/>
+  <rect x="80" y="200" width="60" height="80" rx="4" fill="#FFFFFF"/>
+  <rect x="150" y="200" width="60" height="80" rx="4" fill="#B0D9BC"/>
+  <rect x="220" y="200" width="60" height="80" rx="4" fill="#FFFFFF"/>
+  <rect x="290" y="200" width="50" height="80" rx="4" fill="#FFFFFF"/>
+  <rect x="80" y="290" width="60" height="40" rx="4" fill="#FFFFFF"/>
+  <rect x="150" y="290" width="60" height="40" rx="4" fill="#FFFFFF"/>
+  <rect x="220" y="290" width="60" height="40" rx="4" fill="#B0D9BC"/>
+  <rect x="290" y="290" width="50" height="40" rx="4" fill="#FFFFFF"/>
+  <rect x="56" y="82" width="308" height="16" rx="4" fill="#237044"/>
+  <rect x="386" y="140" width="130" height="180" rx="8" fill="#B0D9BC"/>
+  <rect x="398" y="155" width="106" height="150" rx="4" fill="#FFFFFF"/>
+  <rect x="398" y="250" width="106" height="55" rx="4" fill="#82C096"/>
+  <rect x="382" y="132" width="138" height="14" rx="4" fill="#2E8B57"/>
+  <circle cx="470" cy="105" r="10" fill="#E2862B"/>
+  <text x="60" y="60" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#0F301E">SUNRISE APARTMENTS</text>
+  <circle cx="495" cy="58" r="24" fill="#237044"/>
+  <text x="495" y="63" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#FFFFFF" text-anchor="middle">KSh</text>
+</svg>

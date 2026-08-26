@@ -1,0 +1,384 @@
+// RentEase Kenya — Prisma schema
+// PostgreSQL database. All relationships enforced via foreign keys.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Enums ───────────────────────────
+
+enum Role {
+  ADMIN
+  LANDLORD
+  TENANT
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum BuildingStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum UnitAvailability {
+  VACANT
+  OCCUPIED
+  PENDING_APPROVAL
+  MAINTENANCE
+}
+
+enum ApplicationStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum TenancyStatus {
+  ACTIVE
+  MOVED_OUT
+  SUSPENDED
+}
+
+enum PaymentStatus {
+  PENDING_CONFIRMATION
+  CONFIRMED
+  REJECTED
+}
+
+enum RentStatus {
+  PAID
+  PENDING
+  OVERDUE
+}
+
+enum NotificationType {
+  SYSTEM
+  BUILDING
+  APPLICATION
+  PAYMENT
+  TENANCY
+  RENT
+}
+
+// ─────────────────────────── Core models ───────────────────────────
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  passwordHash String
+  fullName     String
+  phone        String
+  role         Role           @default(TENANT)
+  status       UserStatus     @default(ACTIVE)
+  profileImage String?
+  nationalId   String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  landlordProfile  LandlordProfile?
+  tenantProfile    TenantProfile?
+  tenantApps       TenantApplication[]  @relation("applicant")
+  tenancies        Tenancy[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  payments         Payment[]            @relation("payer")
+  reviewedBuildings Building[]          @relation("reviewedBy")
+  reviewedApps     TenantApplication[]  @relation("reviewedBy")
+  reviewedPayments Payment[]            @relation("reviewedBy")
+  passwordResets   PasswordReset[]
+  tenancyMoves     Tenancy[]            @relation("movedBy")
+}
+
+model LandlordProfile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idNumber    String?
+  businessName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  buildings Building[]
+}
+
+model TenantProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nationalId      String?
+  emergencyContact String?
+  emergencyName   String?
+  occupation      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Building {
+  id             String         @id @default(cuid())
+  name           String
+  description    String
+  location       String         // general area e.g. "Gataka, Kajiado"
+  county         String
+  town           String
+  exactAddress   String
+  contactPhone   String
+  contactEmail   String?
+  propertyType   String         // Apartment, Bedsitter, Single Room, Maisonette, etc.
+  numberOfFloors Int
+  status         BuildingStatus @default(PENDING_APPROVAL)
+  approvalNote   String?        // rejection reason / change request
+  currency       String         @default("KES")
+  defaultDueDay  Int            @default(5)
+  landlordId     String
+  landlord       LandlordProfile @relation(fields: [landlordId], references: [id], onDelete: Cascade)
+  reviewedById   String?
+  reviewedBy     User?          @relation("reviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  floors   Floor[]
+  images   PropertyImage[]
+  units    Unit[]
+  applications TenantApplication[]
+  tenancies Tenancy[]
+  payments Payment[]
+
+  @@index([status])
+  @@index([county])
+  @@index([town])
+  @@index([location])
+  @@index([propertyType])
+}
+
+model Floor {
+  id         String  @id @default(cuid())
+  buildingId String
+  building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  name       String  // custom, e.g. "Ground Floor", "First Floor", "B1"
+  sortOrder  Int     @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  units Unit[]
+  tenancies Tenancy[]
+  applications TenantApplication[]
+
+  @@unique([buildingId, name])
+  @@index([buildingId])
+}
+
+model Unit {
+  id             String           @id @default(cuid())
+  buildingId     String
+  building       Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  floorId        String
+  floor          Floor            @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  unitNumber     String           // fully custom: 001, 101, 61B, A1, Shop 4, Room 7...
+  monthlyRent    Decimal          @db.Decimal(12, 2)
+  depositAmount  Decimal?         @db.Decimal(12, 2)
+  bedrooms       Int              @default(1)
+  bathrooms      Int              @default(1)
+  description    String?
+  availability   UnitAvailability @default(VACANT)
+  amenities      String[]         @default([])
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  images          PropertyImage[]
+  applications    TenantApplication[]
+  tenancies       Tenancy[]
+  payments        Payment[]
+
+  @@unique([floorId, unitNumber])
+  @@index([buildingId])
+  @@index([availability])
+  @@index([monthlyRent])
+}
+
+model TenantApplication {
+  id             String            @id @default(cuid())
+  tenantId       String
+  tenant         User              @relation("applicant", fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantProfileId String?
+  buildingId     String
+  building       Building          @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  unitId         String
+  unit           Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  floorId        String
+  floor          Floor             @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  status         ApplicationStatus @default(PENDING_APPROVAL)
+  note           String?
+  reviewedById   String?
+  reviewedBy     User?             @relation("reviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([status])
+  @@index([buildingId])
+  @@index([unitId])
+  @@index([tenantId])
+}
+
+model Tenancy {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      User         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantProfileId String?
+  buildingId  String
+  building    Building     @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  unitId      String
+  unit        Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  floorId     String
+  floor       Floor        @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  landlordId  String       // Building.landlordId (profile id) — denormalised for query speed
+  status      TenancyStatus @default(ACTIVE)
+  monthlyRent Decimal      @db.Decimal(12, 2) // snapshot of rent at start of tenancy
+  startedAt   DateTime     @default(now())
+  endedAt     DateTime?
+  movedOutReason String?
+  movedById   String?
+  movedBy     User?        @relation("movedBy", fields: [movedById], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  payments Payment[]
+
+  @@unique([unitId, status])
+  @@index([tenantId])
+  @@index([buildingId])
+  @@index([status])
+}
+
+model PaymentMethod {
+  id            String   @id @default(cuid())
+  name          String   @default("M-Pesa")
+  instructions  String
+  paybillNumber String?
+  tillNumber    String?
+  accountNumber String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  tenancyId      String
+  tenancy        Tenancy       @relation(fields: [tenancyId], references: [id], onDelete: Cascade)
+  tenantId       String
+  tenant         User          @relation("payer", fields: [tenantId], references: [id], onDelete: Cascade)
+  unitId         String
+  unit           Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  buildingId     String
+  building       Building      @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  landlordId     String
+  amount         Decimal       @db.Decimal(12, 2)
+  currency       String        @default("KES")
+  transactionCode String        @unique // M-Pesa code — must never repeat
+  paymentDate    DateTime
+  month          Int           // 1-12
+  year           Int
+  status         PaymentStatus @default(PENDING_CONFIRMATION)
+  rejectionReason String?
+  method         String        @default("M-Pesa")
+  reviewedById   String?
+  reviewedBy     User?         @relation("reviewedBy", fields: [reviewedById], references: [id])
+  reviewedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([transactionCode])
+  @@index([status])
+  @@index([paymentDate])
+  @@index([tenantId])
+  @@index([buildingId])
+  @@index([unitId])
+  @@unique([tenancyId, month, year, status])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType @default(SYSTEM)
+  title     String
+  message   String
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
+}
+
+model PropertyImage {
+  id        String   @id @default(cuid())
+  url       String
+  alt       String?
+  kind      String   @default("building") // building | unit | exterior | interior
+  buildingId String?
+  building  Building? @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  unitId    String?
+  unit      Unit?     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  uploadedById String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([buildingId])
+  @@index([unitId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model SystemSettings {
+  id                Int     @id @default(1)
+  platformName      String  @default("RentEase Kenya")
+  tagline           String  @default("Find Your Next Home. Manage Your Property.")
+  logoUrl           String?
+  supportPhone      String  @default("+254 700 000 000")
+  supportEmail      String  @default("support@rentease.co.ke")
+  contactAddress    String?
+  paymentInstructions String @default("Pay your rent via M-Pesa and enter the transaction code below.")
+  mpesaPaybill      String  @default("000000")
+  mpesaTill         String  @default("000000")
+  mpesaAccount      String  @default("RENT")
+  defaultDueDay     Int     @default(5)
+  currency          String  @default("KES")
+  updatedAt         DateTime @updatedAt
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([tokenHash])
+}

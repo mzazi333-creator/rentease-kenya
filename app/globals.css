@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f8faf8;
+  --foreground: #0f301e;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+
+  .card-pad {
+    @apply p-4 sm:p-6;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:bg-slate-100;
+  }
+
+  .label {
+    @apply mb-1 block text-sm font-medium text-slate-700;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500;
+  }
+
+  .btn-secondary {
+    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:ring-slate-400;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+  }
+
+  .btn-accent {
+    @apply btn bg-accent-500 text-white hover:bg-accent-600 focus:ring-accent-400;
+  }
+
+  .btn-ghost {
+    @apply btn text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:ring-slate-300;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+}
+
+/* Simple table for dashboards — degrades to cards on small screens via wrapper */
+.table-wrap {
+  @apply overflow-x-auto rounded-lg border border-slate-200 bg-white;
+}
+.table-base {
+  @apply w-full min-w-[640px] text-left text-sm;
+}
+.table-base thead {
+  @apply bg-slate-50 text-xs uppercase tracking-wide text-slate-500;
+}
+.table-base th {
+  @apply px-4 py-3 font-semibold;
+}
+.table-base td {
+  @apply border-t border-slate-100 px-4 py-3 align-middle;
+}
+
+/* Animations */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.skeleton {
+  @apply animate-[skeleton-pulse_1.4s_ease-in-out_infinite] rounded bg-slate-200;
+}
