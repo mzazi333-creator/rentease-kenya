@@ -360,7 +360,10 @@ async function main() {
   });
   await rejectPayment(adminActor, pay2.id, "Code could not be verified with M-Pesa");
   const rejected = await prisma.payment.findUnique({ where: { id: pay2.id } });
-  check("payment REJECTED with reason", rejected?.status === "REJECTED" && rejected.rejectionReason?.includes("M-Pesa"));
+  check(
+    "payment REJECTED with reason",
+    rejected?.status === "REJECTED" && (rejected.rejectionReason?.includes("M-Pesa") ?? false)
+  );
 
   // Tenant can resubmit after rejection
   const pay3 = await submitPayment(tenantActor, {
