@@ -96,15 +96,17 @@ npm run start
 ### Vercel (recommended)
 
 1. **Use a hosted PostgreSQL** that Vercel can reach (e.g. Neon, Supabase, Railway). A `localhost`/private database will never work from Vercel.
-2. Import the GitHub repo into Vercel (framework preset: Next.js). The build script already runs `prisma generate` (with the `debian-openssl-3.0.x` engine target included), so no extra build settings are required.
+2. Import the GitHub repo into Vercel (framework preset: Next.js). The `vercel-build` script runs `prisma migrate deploy` automatically on every build — **migrations are applied to the hosted database for you** — followed by `prisma generate` (with the `debian-openssl-3.0.x` engine target included) and `next build`. No extra build settings are required.
 3. **Critical:** in Vercel → Project → Settings → Environment Variables, add:
    - `DATABASE_URL` = your hosted PostgreSQL connection string
-4. Run migrations against the hosted database before/after deploy:
+   - Make sure it is enabled for the **Production** environment (the build runs with production env vars). Add it for Preview/Development too if you use them.
+4. **One-time:** create the admin account on the hosted database:
    ```bash
-   npx prisma migrate deploy
-   npm run db:seed          # creates the admin (see section 6)
+   # locally, with DATABASE_URL pointing at your hosted DB:
+   npm run db:seed        # creates admin (see section 6); add --demo for demo data
    ```
-5. Deploy. If you ever see a generic "Application error" page, the first thing to check is the `DATABASE_URL` variable above — the app now renders a friendly diagnostic page when the database is unreachable.
+   (Or run the same command inside a one-off Vercel build / your CI.)
+5. Deploy. If you see `P2021: table does not exist` errors, the migrations did not reach that database — check that `DATABASE_URL` is set for Production and redeploy (the `vercel-build` step applies pending migrations).
 
 > Note: property image uploads are stored on the local filesystem, which is ephemeral on Vercel. For production image persistence, add a cloud storage driver to `lib/storage.ts`.
 
